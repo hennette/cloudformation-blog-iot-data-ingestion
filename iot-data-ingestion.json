@@ -2,11 +2,17 @@
 	"AWSTemplateFormatVersion" : "2010-09-09", 
 	"Description" : "Ingesting and analyzing legacy IoT data sources using AWS Step Functions, AWS IoT Analytics and AWS IoT Events. Author : hennette@amazon.lu", 
 	"Parameters": {
-		  "EMail": {
+		  	"EMail": {
 			"Description": "EMail address to notify if there are missing KPI's records",
 			"Type": "String",
 			"AllowedPattern": "([a-zA-Z0-9_\\-\\.]+)@((\\[[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.)|(([a-zA-Z0-9\\-]+\\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\\]?)",
 		  "ConstraintDescription": "must be a valid email address."
+		},
+			"BucketName" : { 
+			"Type": "String",
+			"Description": "The name for the S3 bucket where the injested data will be stored" ,
+			"AllowedPattern": "^[0-9a-z-/]*$",  
+			"ConstraintDescription": "3-63 characters; must contain only lowercase letters or numbers"
 		}
 	},  
 	"Resources": { 
@@ -32,7 +38,7 @@
 				"Type": "AWS::S3::Bucket",
 				"DeletionPolicy": "Delete",
 				"Properties": {
-					"BucketName": {"Fn::Join": ["",[ {"Ref": "AWS::StackName"}, "s3incomingdata"]]},
+					"BucketName": {"Ref": "BucketName"},
 					"LifecycleConfiguration": {
 						"Rules": [
 						{
@@ -77,6 +83,9 @@
 						  "Fn::Join": [ "", [ "arn:aws:s3:::",  { "Ref": "S3BucketRawData"  },  "/AWSLogs/",{"Ref": "AWS::AccountId"} , "/*" ] ]
 						},
 						"Condition": {
+                            "StringEquals": {
+                                  "aws:SourceArn": {"Ref": "AWS::AccountId"} 
+                            }, 
 						  "StringEquals": {
 							"s3:x-amz-acl": "bucket-owner-full-control"
 						  }
@@ -98,7 +107,7 @@
 					"EventSelectors" : [ {
 						"DataResources" : [ {
 							"Type" : "AWS::S3::Object",
-							"Values" : [ {"Fn::Join": ["",["arn:aws:s3:::", {"Fn::Join": ["",[ {"Ref": "AWS::StackName"}, "s3incomingdata"]]},"/raw"]]} ]
+							"Values" : [ {"Fn::Join": ["",["arn:aws:s3:::", {"Ref": "BucketName"},"/raw"]]} ]
 						  }],
 						"ReadWriteType" : "WriteOnly"
 					  }]
@@ -191,13 +200,13 @@
                                 "Sid": "VisualEditor0",
                                 "Effect": "Allow",
                                 "Action": "s3:GetObject",
-                                "Resource": {"Fn::Join": ["",["arn:aws:s3:::", {"Fn::Join": ["",[ {"Ref": "AWS::StackName"}, "s3incomingdata"]]},"/raw/*"]]}
+                                "Resource": {"Fn::Join": ["",["arn:aws:s3:::", {"Ref": "BucketName"},"/raw/*"]]}
                             },
                             {
                                 "Sid": "VisualEditor1",
                                 "Effect": "Allow",
                                 "Action": "s3:PutObject",
-                                "Resource": {"Fn::Join": ["",["arn:aws:s3:::", {"Fn::Join": ["",[ {"Ref": "AWS::StackName"}, "s3incomingdata"]]},"/json/*"]]}
+                                "Resource": {"Fn::Join": ["",["arn:aws:s3:::", {"Ref": "BucketName"},"/json/*"]]}
                             }
 						]
 				   },
@@ -323,13 +332,13 @@
 								"Sid": "VisualEditor0",
 								"Effect": "Allow",
 								"Action": "s3:GetObject",
-								"Resource": {"Fn::Join": ["",["arn:aws:s3:::", {"Fn::Join": ["",[ {"Ref": "AWS::StackName"}, "s3incomingdata"]]},"/json/*"]]}
+								"Resource": {"Fn::Join": ["",["arn:aws:s3:::", {"Ref": "BucketName"},"/json/*"]]}
 							},
 							{
 								"Sid": "VisualEditor1",
 								"Effect": "Allow",
 								"Action": "s3:PutObject",
-								"Resource": {"Fn::Join": ["",["arn:aws:s3:::", {"Fn::Join": ["",[ {"Ref": "AWS::StackName"}, "s3incomingdata"]]},"/transformedjson/*"]]}
+								"Resource": {"Fn::Join": ["",["arn:aws:s3:::", {"Ref": "BucketName"},"/transformedjson/*"]]}
 							}
 						]
 					},
@@ -473,7 +482,7 @@
 							"Sid": "VisualEditor1",
 							"Effect": "Allow",
 							"Action": "s3:GetObject",
-							"Resource": {"Fn::Join": ["",["arn:aws:s3:::", {"Fn::Join": ["",[ {"Ref": "AWS::StackName"}, "s3incomingdata"]]},"/transformedjson/*"]]}
+							"Resource": {"Fn::Join": ["",["arn:aws:s3:::", {"Ref": "BucketName"},"/transformedjson/*"]]}
 						}
 					]
 				},
@@ -577,15 +586,15 @@
 									"s3:DeleteObject"
 								],
 								"Resource": [
-									{"Fn::Join": ["",["arn:aws:s3:::", {"Fn::Join": ["",[ {"Ref": "AWS::StackName"}, "s3incomingdata"]]},"/raw/*"]]},
-									{"Fn::Join": ["",["arn:aws:s3:::", {"Fn::Join": ["",[ {"Ref": "AWS::StackName"}, "s3incomingdata"]]},"/json/*"]]}
+									{"Fn::Join": ["",["arn:aws:s3:::", {"Ref": "BucketName"},"/raw/*"]]},
+									{"Fn::Join": ["",["arn:aws:s3:::", {"Ref": "BucketName"},"/json/*"]]}
 								]
 							},
 							{
 								"Sid": "VisualEditor1",
 								"Effect": "Allow",
 								"Action": "s3:PutObject",
-								"Resource": {"Fn::Join": ["",["arn:aws:s3:::", {"Fn::Join": ["",[ {"Ref": "AWS::StackName"}, "s3incomingdata"]]},"/invaliddata/*"]]}
+								"Resource": {"Fn::Join": ["",["arn:aws:s3:::", {"Ref": "BucketName"},"/invaliddata/*"]]}
 							}
 						]
 					},
@@ -951,7 +960,7 @@
 				"detail": {"eventSource": ["s3.amazonaws.com"],
 				"eventName": ["PutObject"],
 				"requestParameters": {
-					"bucketName": [{"Fn::Join": ["",[ {"Ref": "AWS::StackName"}, "s3incomingdata"]]}]
+					"bucketName": [{"Ref": "BucketName"}]
 				  }
 				}
 			  },
@@ -1077,7 +1086,7 @@
 				"Environment" : {
 					"Variables" : 
 						{
-							"bucket": {"Fn::Join": ["",[ {"Ref": "AWS::StackName"}, "s3incomingdata"]]},
+							"bucket": {"Ref": "BucketName"},
 							"assetcount": 5,
 							"dynamodbtable" :  {"Fn::Join": ["_",[ {"Ref": "AWS::StackName"}, "DynamoDBTable_KPIThresholds"]]}
 						} 
@@ -1127,7 +1136,7 @@
                                 "Sid": "VisualEditor0",
                                 "Effect": "Allow",
                                 "Action": "s3:PutObject",
-                                "Resource": {"Fn::Join": ["",["arn:aws:s3:::", {"Fn::Join": ["",[ {"Ref": "AWS::StackName"}, "s3incomingdata"]]},"/*"]]}
+                                "Resource": {"Fn::Join": ["",["arn:aws:s3:::", {"Ref": "BucketName"},"/*"]]}
                             }
 						]
 				   },
